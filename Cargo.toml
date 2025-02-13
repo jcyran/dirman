@@ -1,0 +1,9 @@
+[package]
+name = "dir_manager"
+version = "0.1.0"
+authors = ["jcyran <cyran.jakub03@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+crossterm = "0.28.1"
+ratatui = "0.29.0"
