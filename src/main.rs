@@ -1,5 +1,4 @@
 mod ui;
-mod events;
 mod directory;
 mod my_errors;
 
