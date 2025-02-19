@@ -4,7 +4,7 @@ mod my_errors;
 
 use std::io;
 
-use crate::ui::App;
+use crate::ui::app::App;
 
 fn main() -> io::Result<()>{
     let mut terminal = ratatui::init();

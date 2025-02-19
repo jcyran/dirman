@@ -65,6 +65,14 @@ impl FileManager {
         entry.file_name().into_string().ok()
     }
 
+    pub fn get_file_path(&self, file_name: String) -> Result<String, MyError> {
+        match self.curr_path.as_path().join(file_name.clone())
+            .clone().into_os_string().into_string() {
+            Ok(path) => Ok(path),
+            Err(_) => Err(MyError::FileError("Incorrect path".to_string())),
+        }
+    }
+
     pub fn get_metadata(&self, file_name: String) -> Option<FileMetadata> {
         let path = self.curr_path.as_path().join(file_name.clone());
 
@@ -87,8 +95,12 @@ impl FileManager {
         }
     }
 
-    pub fn rename(&self, file_name: String) {
-        
+    pub fn rename(&self, file_path: String, new_file_path: String) -> Result<(), MyError> {
+        if let Err(e) = fs::rename(file_path, new_file_path) {
+            return Err(MyError::FileError(format!("Insufficient privilages: {}", e)));
+        }
+
+        Ok(())
     }
 }
 
