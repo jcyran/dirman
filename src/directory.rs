@@ -69,7 +69,7 @@ impl FileManager {
         match self.curr_path.as_path().join(file_name.clone())
             .clone().into_os_string().into_string() {
             Ok(path) => Ok(path),
-            Err(_) => Err(MyError::FileError("Incorrect path".to_string())),
+            Err(_) => Err(MyError::FileError("Incorrect path or permissions".to_string())),
         }
     }
 
@@ -93,6 +93,23 @@ impl FileManager {
         } else {
             None
         }
+    }
+
+    pub fn delete(&self, file_path: String, file_type: FileTypeEnum) -> Result<(), MyError>{
+        match file_type {
+            FileTypeEnum::File | FileTypeEnum::Symlink => {
+                if let Err(_) = fs::remove_file(file_path) {
+                    return Err(MyError::FileError("Incorrect path or permissions".to_string()));
+                }
+            },
+            FileTypeEnum::Directory => {
+                if let Err(_) = fs::remove_dir(file_path) {
+                    return Err(MyError::FileError("Incorrect path or permissions".to_string()));
+                }
+            },
+        };
+
+        Ok(())
     }
 
     pub fn rename(&self, file_path: String, new_file_path: String) -> Result<(), MyError> {

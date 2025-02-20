@@ -28,16 +28,8 @@ impl UserInput {
     }
 
     pub fn enter_char(&mut self, new_char: char) {
-        let index = self.byte_index();
-        self.input_value.insert(index, new_char);
-    }
-
-    pub fn byte_index(&self) -> usize {
-        self.input_value
-            .char_indices()
-            .map(|(i, _)| i)
-            .nth(self.input_index)
-            .unwrap_or(self.input_value.len())
+        self.input_value.push(new_char);
+        self.input_index += 1;
     }
 
     pub fn delete_char(&mut self) {

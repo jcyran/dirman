@@ -56,6 +56,7 @@ pub enum AppMode {
     Files,
     Select,
     Rename,
+    Delete,
 }
 
 impl Default for Bookmarked {
@@ -172,13 +173,31 @@ impl App {
                     },
                     AppMode::Rename => {
                         match code {
-                            KeyCode::Enter => self.rename_file(),
+                            KeyCode::Enter => {
+                                self.rename_file();
+                                self.app_mode = AppMode::Files;
+                            },
                             KeyCode::Char(to_insert) => self.user_input.enter_char(to_insert),
                             KeyCode::Backspace => self.user_input.delete_char(),
                             KeyCode::Esc => self.app_mode = AppMode::Select,
                             _ => {}
                         }
                     },
+                    AppMode::Delete => {
+                        match code {
+                            KeyCode::Enter => {
+                                if self.user_input.get_input_value() == "y" {
+                                    self.delete_file()
+                                }
+
+                                self.app_mode = AppMode::Files;
+                            },
+                            KeyCode::Char(to_insert) => self.user_input.enter_char(to_insert),
+                            KeyCode::Backspace => self.user_input.delete_char(),
+                            KeyCode::Esc => self.app_mode = AppMode::Select,
+                            _ => {}
+                        }
+                    }
                     AppMode::Exit => {},
                 }
             }
@@ -238,7 +257,10 @@ impl App {
         let Ok(action) = self.select_list.items[index].parse::<FileAction>() else { return };
 
         match action {
-            FileAction::Delete => {}
+            FileAction::Delete => {
+                self.user_input = UserInput::default();
+                self.app_mode = AppMode::Delete;
+            }
             FileAction::Rename => { 
                 self.user_input = UserInput::new(file_name);
                 self.app_mode = AppMode::Rename;
@@ -258,6 +280,28 @@ impl App {
                 self.app_mode = AppMode::Files;
             }
         }
+    }
+
+    fn delete_file(&mut self) {
+        let Some(index) = self.file_list.state.selected() else { return };
+        let file_name = self.file_list.items[index].clone();
+        let file_path = match self.dir.get_file_path(file_name.clone()) {
+            Ok(path) => path,
+            Err(e) => {
+                self.error_msg = e.to_string();
+                return;
+            }
+        };
+
+        let metadata = match self.dir.get_metadata(file_name) {
+            Some(metadata) => metadata,
+            None => return
+        };
+
+        match self.dir.delete(file_path, metadata.filetype) {
+            Ok(_) => {},
+            Err(e) => self.error_msg = e.to_string(),
+        };
     }
 
     fn rename_file(&mut self) {
@@ -285,8 +329,6 @@ impl App {
                 self.error_msg = e.to_string();
             }
         };
-
-        self.app_mode = AppMode::Files;
     }
 
     fn move_bookmarked(&mut self) {
@@ -330,16 +372,19 @@ impl Widget for &mut App {
             self.render_error(error_area, buf);
         }
 
-        if self.app_mode == AppMode::Rename {
-            let input_area: Rect;
+        match self.app_mode {
+            AppMode::Rename | AppMode::Delete => {
+                let input_area: Rect;
 
-            [main_area, input_area] = Layout::vertical([
-                Constraint::Fill(1),
-                Constraint::Length(3),
-            ]).areas(main_area);
+                [main_area, input_area] = Layout::vertical([
+                    Constraint::Fill(1),
+                    Constraint::Length(3),
+                ]).areas(main_area);
 
-            self.render_input(input_area, buf);
-        }
+                self.render_input(input_area, buf);
+            },
+            _ => {},
+        };
 
         let [files_area, mut metadata_area] = Layout::horizontal(
             [Constraint::Fill(2), Constraint::Fill(1)]
@@ -523,15 +568,26 @@ impl App {
             .title(Line::from(" Input "))
             .border_set(border::THICK);
 
+        let input_text = match self.app_mode {
+            AppMode::Rename => Line::from(vec![" Renaming a file: ".blue().into()]),
+            AppMode::Delete => {
+                let Some(index) = self.file_list.state.selected() else { return };
+                let file_name = self.file_list.items[index].clone();
+
+                Line::from(vec![
+                    " Delete a file: ".blue().into(),
+                    file_name.into(),
+                    " (y/n) ".blue().into(),
+                ])
+            },
+            _ => Line::from(vec!["".into()]),
+        };
+
         let input_value = self.user_input.get_input_value();
 
-        let input_block = vec![
-            Line::from(vec![
-                " Renaming a file: ".blue().into(),
-                input_value.into(),
-                "_".yellow().into(),
-            ])
-        ];
+        let mut input_block = input_text;
+        input_block.spans.push(input_value.into());
+        input_block.spans.push("_".yellow().into());
 
         Paragraph::new(input_block)
             .block(block)
