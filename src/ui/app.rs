@@ -13,7 +13,7 @@ use strum_macros::EnumIter;
 
 use crate::directory::FileManager;
 
-use super::user_input::UserInput;
+use super::{help::HelpWindow, user_input::UserInput};
 
 //Styles
 const SELECTED_STYLE: Style = Style::new().bg(Color::Rgb(0x3f, 0x44, 0x50));
@@ -57,6 +57,7 @@ pub enum AppMode {
     Select,
     Rename,
     Delete,
+    Help,
 }
 
 impl Default for Bookmarked {
@@ -149,10 +150,11 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.app_mode = AppMode::Exit,
+            KeyCode::Char('?') => self.app_mode = AppMode::Help,
             code => {
                 match self.app_mode {
                     AppMode::Files => {
-                        match key_event.code {
+                        match code {
                             KeyCode::Up | KeyCode::Char('k') => self.select_previous_file(),
                             KeyCode::Down | KeyCode::Char('j') => self.select_next_file(),
                             KeyCode::Char('m') => self.move_into(),
@@ -196,6 +198,12 @@ impl App {
                             KeyCode::Backspace => self.user_input.delete_char(),
                             KeyCode::Esc => self.app_mode = AppMode::Select,
                             _ => {}
+                        }
+                    }
+                    AppMode::Help => {
+                        match code {
+                            KeyCode::Esc => self.app_mode = AppMode::Files,
+                            _ => {},
                         }
                     }
                     AppMode::Exit => {},
@@ -355,10 +363,9 @@ impl Widget for &mut App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let main_height = area.height.saturating_sub(4);
 
-        let [header_area, mut main_area, footer_area] = Layout::vertical([
+        let [header_area, mut main_area] = Layout::vertical([
             Constraint::Length(2),
             Constraint::Length(main_height),
-            Constraint::Length(1),
         ]).areas(area);
 
         if !self.error_msg.is_empty() {
@@ -391,7 +398,6 @@ impl Widget for &mut App {
         ).areas(main_area);
 
         App::render_header(header_area, buf);
-        App::render_footer(footer_area, buf);
         self.render_files(files_area, buf);
 
         if !self.bookmarked.file_name.is_empty() {
@@ -405,15 +411,27 @@ impl Widget for &mut App {
             self.render_bookmark(bookmark_area, buf);
         }
 
-        if self.app_mode >= AppMode::Select {
-            let [metadata_area, select_area] = Layout::vertical(
-                [Constraint::Fill(1); 2]
-            ).areas(metadata_area);
+        match self.app_mode {
+            AppMode::Select | AppMode::Rename | AppMode::Delete => {
+                let [metadata_area, select_area] = Layout::vertical(
+                    [Constraint::Fill(1); 2]
+                ).areas(metadata_area);
 
-            self.render_metadata(metadata_area, buf);
-            self.render_select_menu(select_area, buf);
-        } else {
-            self.render_metadata(metadata_area, buf);
+                self.render_metadata(metadata_area, buf);
+                self.render_select_menu(select_area, buf);
+            },
+            _ => self.render_metadata(metadata_area, buf),
+        };
+
+        if self.app_mode == AppMode::Help {
+            let help_area = Rect {
+                x: area.width / 3,
+                y: area.height / 4,
+                width: area.width / 3,
+                height: area.height / 2,
+            };
+
+            HelpWindow::default().render_help(help_area, buf);
         }
     }
 }
@@ -439,35 +457,18 @@ impl App {
             .render(area, buf);
     }
 
-    fn render_footer(area: Rect, buf: &mut Buffer) {
-        let instruction = Line::from(vec![
-            " Move ".into(),
-            "<↓↑>".blue().into(),
-            " Move into ".into(),
-            "<m>".blue().into(),
-            " Move out ".into(),
-            "<->".blue().into(),
-            " Select ".into(),
-            "<Enter>".blue().into(),
-            " Move Bookmarked ".into(),
-            "<b>".blue().into(),
-            " Quit ".into(),
-            "<q>".blue().into(),
-            "\t".into()
-        ]);
-
-        Paragraph::new(instruction)
-            .bold()
-            .centered()
-            .render(area, buf);
-    }
-
     fn render_files(&mut self, area: Rect, buf: &mut Buffer) {
         let current_path = Line::from(format!(" {} ", self.dir.get_current_path())).left_aligned();
+
+        let instruction = Line::from(vec![
+            " Help ".into(),
+            "<?> ".blue().into(),
+        ]);
 
         let block = Block::bordered()
             .title(Line::from(" Files "))
             .title_bottom(current_path.yellow())
+            .title_bottom(instruction.right_aligned())
             .border_set(border::THICK);
 
         let items: Vec<ListItem> = self
