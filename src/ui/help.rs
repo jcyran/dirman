@@ -28,6 +28,7 @@ impl Default for HelpWindow {
                 Command { name: "Select".to_string(), keybind: "<Enter>".to_string() },
                 Command { name: "Move Bookmarked".to_string(), keybind: "<b>".to_string() },
                 Command { name: "Quit".to_string(), keybind: "<q>".to_string() },
+                Command { name: "Create".to_string(), keybind: "<a>".to_string() },
             ],
         }
     }

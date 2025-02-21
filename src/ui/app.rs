@@ -57,6 +57,7 @@ pub enum AppMode {
     Select,
     Rename,
     Delete,
+    Create,
     Help,
 }
 
@@ -157,6 +158,7 @@ impl App {
                         match code {
                             KeyCode::Up | KeyCode::Char('k') => self.select_previous_file(),
                             KeyCode::Down | KeyCode::Char('j') => self.select_next_file(),
+                            KeyCode::Char('a') => self.app_mode = AppMode::Create,
                             KeyCode::Char('m') => self.move_into(),
                             KeyCode::Char('-') => self.move_out(),
                             KeyCode::Char('b') => self.move_bookmarked(),
@@ -205,7 +207,19 @@ impl App {
                             KeyCode::Esc => self.app_mode = AppMode::Files,
                             _ => {},
                         }
-                    }
+                    },
+                    AppMode::Create => {
+                        match code {
+                            KeyCode::Enter => {
+                                self.create_file();
+                                self.app_mode = AppMode::Files;
+                            },
+                            KeyCode::Char(to_insert) => self.user_input.enter_char(to_insert),
+                            KeyCode::Backspace => self.user_input.delete_char(),
+                            KeyCode::Esc => self.app_mode = AppMode::Select,
+                            _ => {}
+                        }
+                    },
                     AppMode::Exit => {},
                 }
             }
@@ -357,6 +371,23 @@ impl App {
         
         self.bookmarked = Bookmarked::default();
     }
+
+    fn create_file(&mut self) {
+        let file_path = match self.dir.get_file_path(self.user_input.get_input_value()) {
+            Ok(path) => path,
+            Err(e) => {
+                self.error_msg = e.to_string();
+                return;
+            }
+        };
+
+        match self.dir.create(file_path) {
+            Ok(_) => {},
+            Err(e) => {
+                self.error_msg = e.to_string();
+            }
+        };
+    }
 }
 
 impl Widget for &mut App {
@@ -380,7 +411,7 @@ impl Widget for &mut App {
         }
 
         match self.app_mode {
-            AppMode::Rename | AppMode::Delete => {
+            AppMode::Rename | AppMode::Delete | AppMode::Create => {
                 let input_area: Rect;
 
                 [main_area, input_area] = Layout::vertical([
@@ -581,6 +612,7 @@ impl App {
                     " (y/n) ".blue().into(),
                 ])
             },
+            AppMode::Create => Line::from(vec![" Creating a file: ".blue().into()]),
             _ => Line::from(vec!["".into()]),
         };
 

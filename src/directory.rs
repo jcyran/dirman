@@ -113,8 +113,26 @@ impl FileManager {
     }
 
     pub fn rename(&self, file_path: String, new_file_path: String) -> Result<(), MyError> {
-        if let Err(e) = fs::rename(file_path, new_file_path) {
-            return Err(MyError::FileError(format!("Insufficient privilages: {}", e)));
+        if let Err(_) = fs::rename(file_path, new_file_path) {
+            return Err(MyError::FileError("Insufficient privilages".to_string()));
+        }
+
+        Ok(())
+    }
+
+    pub fn create(&self, file_path: String) -> Result<(), MyError> {
+        if let Some(last_char) = file_path.chars().last() {
+            if last_char == '/' {
+                if let Err(_) = fs::create_dir(file_path) {
+                    return Err(MyError::FileError("Insufficient privilages or path already exists".to_string()));
+                }
+            } else {
+                if let Err(_) = fs::write(file_path.clone(), "") {
+                    return Err(MyError::FileError("Insufficient privilages or path already exists".to_string()));
+                }
+            }
+        } else {
+            return Err(MyError::FileError("Input is empty".to_string()));
         }
 
         Ok(())
